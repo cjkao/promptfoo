@@ -41,18 +41,20 @@ export async function writeResultsToDatabase(
 
   const promises = [];
   promises.push(
-    db
-      .insert(evalsTable)
-      .values({
-        id: evalId,
-        createdAt: createdAt.getTime(),
-        author: getAuthor(),
-        description: config.description,
-        config,
-        results,
-      })
-      .onConflictDoNothing()
-      .run(),
+    (async () => {
+      await db
+        .insert(evalsTable)
+        .values({
+          id: evalId,
+          createdAt: createdAt.getTime(),
+          author: getAuthor(),
+          description: config.description,
+          config,
+          results,
+        })
+        .onConflictDoNothing()
+        .run();
+    })(),
   );
 
   logger.debug(`Inserting eval ${evalId}`);
@@ -65,25 +67,29 @@ export async function writeResultsToDatabase(
     const promptId = generateIdFromPrompt(prompt);
 
     promises.push(
-      db
-        .insert(promptsTable)
-        .values({
-          id: promptId,
-          prompt: label,
-        })
-        .onConflictDoNothing()
-        .run(),
+      (async () => {
+        await db
+          .insert(promptsTable)
+          .values({
+            id: promptId,
+            prompt: label,
+          })
+          .onConflictDoNothing()
+          .run();
+      })(),
     );
 
     promises.push(
-      db
-        .insert(evalsToPromptsTable)
-        .values({
-          evalId,
-          promptId,
-        })
-        .onConflictDoNothing()
-        .run(),
+      (async () => {
+        await db
+          .insert(evalsToPromptsTable)
+          .values({
+            evalId,
+            promptId,
+          })
+          .onConflictDoNothing()
+          .run();
+      })(),
     );
 
     logger.debug(`Inserting prompt ${promptId}`);
@@ -104,25 +110,29 @@ export async function writeResultsToDatabase(
   }
 
   promises.push(
-    db
-      .insert(datasetsTable)
-      .values({
-        id: datasetId,
-        tests: testsForStorage,
-      })
-      .onConflictDoNothing()
-      .run(),
+    (async () => {
+      await db
+        .insert(datasetsTable)
+        .values({
+          id: datasetId,
+          tests: testsForStorage,
+        })
+        .onConflictDoNothing()
+        .run();
+    })(),
   );
 
   promises.push(
-    db
-      .insert(evalsToDatasetsTable)
-      .values({
-        evalId,
-        datasetId,
-      })
-      .onConflictDoNothing()
-      .run(),
+    (async () => {
+      await db
+        .insert(evalsToDatasetsTable)
+        .values({
+          evalId,
+          datasetId,
+        })
+        .onConflictDoNothing()
+        .run();
+    })(),
   );
 
   logger.debug(`Inserting dataset ${datasetId}`);
@@ -133,26 +143,30 @@ export async function writeResultsToDatabase(
       const tagId = sha256(`${tagKey}:${tagValue}`);
 
       promises.push(
-        db
-          .insert(tagsTable)
-          .values({
-            id: tagId,
-            name: tagKey,
-            value: tagValue,
-          })
-          .onConflictDoNothing()
-          .run(),
+        (async () => {
+          await db
+            .insert(tagsTable)
+            .values({
+              id: tagId,
+              name: tagKey,
+              value: tagValue,
+            })
+            .onConflictDoNothing()
+            .run();
+        })(),
       );
 
       promises.push(
-        db
-          .insert(evalsToTagsTable)
-          .values({
-            evalId,
-            tagId,
-          })
-          .onConflictDoNothing()
-          .run(),
+        (async () => {
+          await db
+            .insert(evalsToTagsTable)
+            .values({
+              evalId,
+              tagId,
+            })
+            .onConflictDoNothing()
+            .run();
+        })(),
       );
 
       logger.debug(`Inserting tag ${tagId}`);
@@ -439,15 +453,16 @@ export async function getEvalFromId(hash: string) {
 
 export async function deleteEval(evalId: string) {
   const db = getDb();
-  db.transaction(() => {
+  await db.transaction(async (tx) => {
     // We need to clean up foreign keys first. We don't have onDelete: 'cascade' set on all these relationships.
-    db.delete(evalsToPromptsTable).where(eq(evalsToPromptsTable.evalId, evalId)).run();
-    db.delete(evalsToDatasetsTable).where(eq(evalsToDatasetsTable.evalId, evalId)).run();
-    db.delete(evalsToTagsTable).where(eq(evalsToTagsTable.evalId, evalId)).run();
-    db.delete(evalResultsTable).where(eq(evalResultsTable.evalId, evalId)).run();
+    await tx.delete(evalsToPromptsTable).where(eq(evalsToPromptsTable.evalId, evalId)).run();
+    await tx.delete(evalsToDatasetsTable).where(eq(evalsToDatasetsTable.evalId, evalId)).run();
+    await tx.delete(evalsToTagsTable).where(eq(evalsToTagsTable.evalId, evalId)).run();
+    await tx.delete(evalResultsTable).where(eq(evalResultsTable.evalId, evalId)).run();
 
     // Finally, delete the eval record
-    const deletedIds = db.delete(evalsTable).where(eq(evalsTable.id, evalId)).run();
+    const deletedIds = await tx.delete(evalsTable).where(eq(evalsTable.id, evalId)).run();
+    // @ts-ignore
     if (deletedIds.changes === 0) {
       throw new Error(`Eval with ID ${evalId} not found`);
     }
@@ -458,14 +473,14 @@ export async function deleteEval(evalId: string) {
  * Deletes evals by their IDs.
  * @param ids - The IDs of the evals to delete.
  */
-export function deleteEvals(ids: string[]) {
+export async function deleteEvals(ids: string[]) {
   const db = getDb();
-  db.transaction(() => {
-    db.delete(evalsToPromptsTable).where(inArray(evalsToPromptsTable.evalId, ids)).run();
-    db.delete(evalsToDatasetsTable).where(inArray(evalsToDatasetsTable.evalId, ids)).run();
-    db.delete(evalsToTagsTable).where(inArray(evalsToTagsTable.evalId, ids)).run();
-    db.delete(evalResultsTable).where(inArray(evalResultsTable.evalId, ids)).run();
-    db.delete(evalsTable).where(inArray(evalsTable.id, ids)).run();
+  await db.transaction(async (tx) => {
+    await tx.delete(evalsToPromptsTable).where(inArray(evalsToPromptsTable.evalId, ids)).run();
+    await tx.delete(evalsToDatasetsTable).where(inArray(evalsToDatasetsTable.evalId, ids)).run();
+    await tx.delete(evalsToTagsTable).where(inArray(evalsToTagsTable.evalId, ids)).run();
+    await tx.delete(evalResultsTable).where(inArray(evalResultsTable.evalId, ids)).run();
+    await tx.delete(evalsTable).where(inArray(evalsTable.id, ids)).run();
   });
 }
 
@@ -476,12 +491,12 @@ export function deleteEvals(ids: string[]) {
  */
 export async function deleteAllEvals(): Promise<void> {
   const db = getDb();
-  db.transaction(() => {
-    db.delete(evalResultsTable).run();
-    db.delete(evalsToPromptsTable).run();
-    db.delete(evalsToDatasetsTable).run();
-    db.delete(evalsToTagsTable).run();
-    db.delete(evalsTable).run();
+  await db.transaction(async (tx) => {
+    await tx.delete(evalResultsTable).run();
+    await tx.delete(evalsToPromptsTable).run();
+    await tx.delete(evalsToDatasetsTable).run();
+    await tx.delete(evalsToTagsTable).run();
+    await tx.delete(evalsTable).run();
   });
 }
 
@@ -523,7 +538,7 @@ export async function getStandaloneEvals({
   }
 
   const db = getDb();
-  const results = db
+  const results = await db
     .select({
       evalId: evalsTable.id,
       description: evalsTable.description,
