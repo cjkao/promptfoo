@@ -33,7 +33,8 @@ function getCurrentDir(): string {
   return currentDir;
 }
 
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { migrate } from 'drizzle-orm/sqlite-proxy/migrator';
+import { sql } from 'drizzle-orm';
 import { getDb } from './database/index';
 import logger from './logger';
 
@@ -47,7 +48,7 @@ import logger from './logger';
 export async function runDbMigrations(): Promise<void> {
   return new Promise((resolve, reject) => {
     // Run the synchronous migration in the next tick to avoid blocking
-    setImmediate(() => {
+    setImmediate(async () => {
       try {
         const db = getDb();
 
@@ -70,7 +71,18 @@ export async function runDbMigrations(): Promise<void> {
         }
 
         logger.debug(`Running database migrations from: ${migrationsFolder}`);
-        migrate(db, { migrationsFolder });
+
+        await migrate(db, async (queries) => {
+          for (const query of queries) {
+             try {
+               await db.run(sql.raw(query));
+             } catch (e) {
+               logger.error(`Failed to run migration query: ${e}`);
+               throw e;
+             }
+          }
+        }, { migrationsFolder });
+
         logger.debug('Database migrations completed');
         resolve();
       } catch (error) {
