@@ -25,7 +25,7 @@ vi.mock('../src/logger', () => ({
   default: mockLogger,
 }));
 
-vi.mock('drizzle-orm/better-sqlite3/migrator', () => ({
+vi.mock('../src/database/migrator', () => ({
   migrate: mockMigrate,
 }));
 

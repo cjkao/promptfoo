@@ -29,7 +29,7 @@ vi.mock('glob', () => ({
   globSync: vi.fn(),
 }));
 
-vi.mock('better-sqlite3');
+vi.mock('node:sqlite');
 
 vi.mock('@inquirer/select', () => ({
   __esModule: true,

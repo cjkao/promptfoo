@@ -59,7 +59,6 @@ export default defineConfig([
       // Externalize all bare module imports so Node resolves CJS deps natively
       /^[a-z@][^:]*/,
       // Ensure critical native deps remain external
-      'better-sqlite3',
       'playwright',
       'sharp',
       '@swc/core',

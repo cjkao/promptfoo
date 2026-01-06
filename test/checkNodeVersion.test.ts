@@ -37,7 +37,7 @@ describe('checkNodeVersion', () => {
 
   it('should not throw if Node.js version is supported', () => {
     // Use a version that meets the requirement
-    setNodeVersion('v20.0.0');
+    setNodeVersion('v22.12.0');
 
     expect(() => checkNodeVersion()).not.toThrow();
   });

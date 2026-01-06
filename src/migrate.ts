@@ -33,8 +33,8 @@ function getCurrentDir(): string {
   return currentDir;
 }
 
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { getDb } from './database/index';
+import { migrate } from './database/migrator';
 import logger from './logger';
 
 /**

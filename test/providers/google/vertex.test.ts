@@ -16,14 +16,13 @@ const mockIsCacheEnabled = vi.hoisted(() => vi.fn());
 const mockImportModule = vi.hoisted(() => vi.fn());
 
 // Mock database
-vi.mock('better-sqlite3', () => {
-  return vi.fn().mockReturnValue({
+vi.mock('node:sqlite', () => ({
+  DatabaseSync: vi.fn().mockImplementation(() => ({
     prepare: vi.fn(),
-    transaction: vi.fn(),
     exec: vi.fn(),
     close: vi.fn(),
-  });
-});
+  })),
+}));
 
 vi.mock('../../../src/database', async (importOriginal) => {
   return {

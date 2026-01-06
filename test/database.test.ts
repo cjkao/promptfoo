@@ -1,8 +1,8 @@
 import fs from 'fs';
+import { DatabaseSync } from 'node:sqlite';
 import * as os from 'os';
 import * as path from 'path';
 
-import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -61,7 +61,7 @@ describe('database WAL mode', () => {
 
     // Then independently verify the journal mode using a direct connection
     const dbPath = database.getDbPath();
-    const directDb = new Database(dbPath);
+    const directDb = new DatabaseSync(dbPath);
 
     try {
       const result = directDb.prepare('PRAGMA journal_mode;').get() as { journal_mode: string };
@@ -80,7 +80,7 @@ describe('database WAL mode', () => {
     database.closeDb();
 
     const dbPath = database.getDbPath();
-    const directDb = new Database(dbPath);
+    const directDb = new DatabaseSync(dbPath);
 
     try {
       const result = directDb.prepare('PRAGMA journal_mode;').get() as { journal_mode: string };
@@ -151,7 +151,7 @@ describe('database WAL mode', () => {
     database.closeDb();
 
     const dbPath = database.getDbPath();
-    const directDb = new Database(dbPath);
+    const directDb = new DatabaseSync(dbPath);
 
     try {
       const autocheckpoint = directDb.prepare('PRAGMA wal_autocheckpoint;').get() as {
@@ -159,9 +159,9 @@ describe('database WAL mode', () => {
       };
       expect(autocheckpoint.wal_autocheckpoint).toBe(1000);
 
-      const synchronous = directDb.prepare('PRAGMA synchronous;').get() as { synchronous: number };
-      // NORMAL = 1 in SQLite
-      expect(synchronous.synchronous).toBe(1);
+      // Synchronous is per-connection and not persistent, so checking a new connection
+      // returns the default (FULL=2), not what the app configured (NORMAL=1).
+      // We only verify persistent settings like wal_autocheckpoint here.
     } finally {
       directDb.close();
     }
